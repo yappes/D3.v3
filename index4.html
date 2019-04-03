@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>force树结构</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style lang="">
+        .node-rect {
+            fill: white;
+            stroke-width: 1px;
+            stroke: #999;
+            width: 80;
+            height: 80;
+        }
+
+        .node-rect-small {
+            fill: white;
+            stroke-width: 1px;
+            stroke: #999;
+        }
+
+        .text-center {
+            text-anchor: middle;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="forceMap"></div>
+    <script src="../d3.v3.min.js">
+    </script>
+    <script>
+        var size = {
+            width: 1200,
+            height: 1200
+        }
+
+        var options = {
+            fontSize: 10,
+            nodeRadius: 12,
+            w: 150,
+        }
+
+        var nodes = [{
+                value: "66666666",
+                name: "home",
+                id: "0"
+            },
+            {
+                value: "11111111111",
+                name: "phone",
+                id: "1",
+                childNode: [{
+                    name: "home",
+                }, {
+                    name: "home",
+                }],
+            },
+            {
+                value: "22222222222",
+                name: "phone",
+                id: "2",
+                childTree: {
+                    links: [{
+                            source: "0",
+                            target: "1"
+                        },
+                        {
+                            source: "1",
+                            target: "2"
+                        },
+                        {
+                            source: "2",
+                            target: "3"
+                        }
+                    ],
+                    nodes: [{
+                        value: "11111111111",
+                        name: "phone",
+                        id: "0",
+                    }, {
+                        value: "11111111111",
+                        name: "phone",
+                        id: "1",
+                    }, {
+                        value: "11111111111",
+                        name: "phone",
+                        id: "2",
+                    }, {
+                        value: "11111111111",
+                        name: "phone",
+                        id: "3",
+                    }, ]
+                }
+            },
+            {
+                value: "33333333333",
+                name: "phone",
+                id: "3"
+            },
+            {
+                value: "44444444444",
+                name: "phone",
+                id: "4"
+            },
+            {
+                value: "55555555555",
+                name: "phone",
+                id: "5"
+            },
+            {
+                value: "aaa",
+                name: "weixin",
+                id: "6"
+            },
+            {
+                value: "bbb",
+                name: "weixin",
+                id: "7"
+            },
+            // {
+            //     value: "ccc",
+            //     name: "weixin",
+            //     id: "8"
+            // },
+            {
+                value: "ddd",
+                name: "weixin",
+                id: "9"
+            },
+            {
+                value: "eee",
+                name: "weixin",
+                id: "10"
+            },
+            {
+                value: "fff",
+                name: "weixin",
+                id: "30"
+            }
+        ];
+        var links = [{
+                source: "0",
+                target: "1"
+            },
+            {
+                source: "0",
+                target: "2"
+            },
+            {
+                source: "0",
+                target: "3"
+            },
+            {
+                source: "0",
+                target: "4"
+            },
+            {
+                source: "0",
+                target: "5"
+            },
+            {
+                source: "2",
+                target: "6"
+            },
+            {
+                source: "5",
+                target: "6"
+            },
+            {
+                source: "6",
+                target: "7"
+            },
+            {
+                source: "6",
+                target: "10"
+            },
+            {
+                source: "10",
+                target: "30"
+            },
+            {
+                source: "6",
+                target: "9"
+            },
+
+        ]
+        //缩放
+        var zoom = d3.behavior.zoom()
+            .scaleExtent([1, 10])
+            .on('zoom', zoomed);
+
+
+        //新建画布
+        var svg = d3.select("#forceMap").append("svg")
+            .attr("width", size.width)
+            .attr("height", size.height)
+            .attr("id", "forceSvg")
+            .call(zoom);
+
+        function zoomed() {
+            mapG.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
+        }
+
+
+        //创建group，svg的绘制中为了避免混乱及后续事件的添加，建议使用g标签将画布分组。
+        var mapG = svg.append("g")
+            .attr("id", "forceGroup")
+
+        dealLinkAndNode([links, nodes])
+
+        function dealLinkAndNode(data) {
+            data[0].forEach(function (e) {
+                var sourceNode = data[1].filter(function (n) {
+                        return n.id === e.source;
+                    })[0],
+                    targetNode = data[1].filter(function (n) {
+                        return n.id === e.target;
+                    })[0];
+                e.source = sourceNode
+                e.target = targetNode
+            });
+        }
+
+
+        // .attr("transform", "translate(0," + options.w + ")");
+        //使用d3的力学布局，通过设定的属性，将数据计算
+        var force = d3.layout.force()
+            .nodes(nodes)
+            .links(links)
+            .size([size.width, size.height])
+            .linkDistance(100)
+            .charge([-1250])
+            .gravity(0.5)
+            .friction(0.5);
+        force.start(); //开始计算
+        //绘制线，svg的覆盖顺序是后面标签覆盖前面的，所以为了避免线在点上面，要先画line
+        var linkG = mapG.selectAll(".link")
+            .data(links)
+            .enter()
+            .append("line")
+            .attr("class", "link")
+            .attr("stroke", "#ccc");
+
+        var nextNode = ''; //记录下一个节点
+        var container = document.querySelector('#forceGroup');
+        //绘制点
+        var nodeG = mapG.selectAll(".node")
+            .data(nodes)
+            .enter()
+            .append("g")
+            .attr('class', 'node')
+            .attr('data-id', function (d) {
+                return d.id;
+            })
+            //下面两个事件进行hover交互
+            .on('mouseover', function (d) {
+                nextNode = this.nextElementSibling;
+                container.appendChild(this);
+            })
+            .on('mouseout', function (d) {
+                container.insertBefore(this, nextNode);
+            })
+            .on('click', function (d) {
+                console.log(d.id);
+            });
+        // .attr("r", 8)
+        // .attr("fill", function (d) {
+        //     switch (d.type) {
+        //         case "home":
+        //             return "red";
+        //             break;
+        //         case "phone":
+        //             return "blue";
+        //             break;
+        //         case "weixin":
+        //             return "green";
+        //             break;
+        //     }
+        // });
+        nodeG.append('svg:rect')
+            .attr('class', 'node-rect')
+            .attr('width', 80)
+            .attr('height', 80)
+            .attr('width', options.w)
+            .attr('height', options.w)
+            .attr('transform', function (d) {
+                return 'translate(' + -options.w / 2 + ',' + -options.w / 2 + ')';
+            })
+
+        nodeG
+            .attr('d', function (d) {
+                if (d.childNode && d.childNode.length > 0) {
+                    let len = d.childNode.length;
+                    let sqrt = Math.sqrt(len);
+                    let isInt = Number.isInteger(sqrt);
+                    let row = isInt ? sqrt : parseInt(sqrt + 1); //小方形列数
+                    let colum = Math.round(sqrt); //小方形行数
+
+                    let w = options.w / row - 4; //小方形的宽度
+                    let cMargin = (options.w - w * row) / (row + 1); //间隔
+                    let rMargin = (options.w - w * colum) / (colum + 1);
+                    var that = this;
+                    d.childNode.forEach((data, index) => {
+                        var count = (index) % row;
+                        var count2 = (index + 1) / row;
+                        var pianYiX = parseInt(count + 1) * cMargin + parseInt(count) * w;
+                        var pianYiY = Math.ceil(count2) * rMargin + Math.ceil(count2 - 1) * w;
+                        //计算横竖坐标
+                        d3.select(that)
+                            .append('svg:rect')
+                            .attr('class', 'node-rect-small')
+                            .attr('width', w)
+                            .attr('height', w)
+                            .attr('transform', function (d) {
+                                return 'translate(' + (-options.w / 2 + pianYiX) + ',' + (-options.w /
+                                    2 +
+                                    pianYiY) + ')';
+                            })
+                        var fs = w / 5;
+                        d3.select(that)
+                            .append('svg:text')
+                            .text(data.name)
+                            .attr('class', 'text-center')
+                            .attr('font-size', fs)
+                            .attr('transform', function (d) {
+                                return 'translate(' + (-options.w / 2 + pianYiX + w / 2) + ',' + (-
+                                    options.w /
+                                    2 +
+                                    pianYiY + w / 2 + w / 2 - w * 0.08) + ')';
+                            });
+                        var imageW = w / 2;
+                        d3.select(that)
+                            .append('svg:image')
+                            .attr('width', imageW)
+                            .attr('height', imageW)
+                            .attr('xlink:href', function (d) {
+                                if (data.childNode || data.childTree) {
+                                    return;
+                                }
+                                return 'db.png';
+                            })
+                            .attr('transform', function (d) {
+                                return 'translate(' + (-options.w / 2 + pianYiX +imageW/2) + ',' + (-
+                                    options.w /
+                                    2 +
+                                    pianYiY +imageW/2 ) + ')';
+                            })
+                    })
+                }
+                if (d.childTree && d.childTree.links && d.childTree.nodes) {
+                    var childOption = {
+                        fontSize: 8,
+                        nodeRadius: 12,
+                        w: 20,
+                    }
+                    var size = {
+                        width: options.w,
+                        height: options.w
+                    }
+                    let dTree = d.childTree;
+                    dealLinkAndNode([dTree.links, dTree.nodes]);
+                    let allNode = document.querySelectorAll('.node');
+                    var thisNode;
+                    allNode.forEach((item) => {
+                        item.getAttribute('data-id') == d.id ? thisNode = item : '';
+                    })
+
+                    var k = d3.select(thisNode);
+                    var Gid = k.append("g")
+                        .attr("id", d.id)
+                        .attr('transform', function (d) {
+                            return 'translate(' + -options.w / 2 + ',' + -options.w / 2 + ')'
+                        })
+                    var force = d3.layout.force()
+                        .nodes(dTree.nodes)
+                        .links(dTree.links)
+                        .size([options.w, options.w])
+                        .linkDistance(20)
+                        .charge([-1250])
+                        .gravity(0.5)
+                        .friction(0.5);
+                    force.start(); //开始计算
+                    //绘制线，svg的覆盖顺序是后面标签覆盖前面的，所以为了避免线在点上面，要先画line
+                    var linkG = Gid.selectAll(".link")
+                        .data(dTree.links)
+                        .enter()
+                        .append("line")
+                        .attr("class", "link")
+                        .attr("stroke", "#ccc");
+                    var nodeG = Gid.selectAll(".node")
+                        .data(dTree.nodes)
+                        .enter()
+                        .append("g")
+                        .attr('class', 'node')
+                        .attr('data-id', function (d) {
+                            return d.id;
+                        })
+                    nodeG.append('svg:rect')
+                        .attr('class', 'node-rect')
+                        .attr('width', childOption.w)
+                        .attr('height', childOption.w)
+                        .attr('transform', function (d) {
+                            return 'translate(' + -childOption.w / 2 + ',' + -childOption.w / 2 + ')';
+                        })
+                    var fs = childOption.w / 5;
+                    nodeG
+                        .append('svg:text')
+                        .text(function (d) {
+                            return d.name;
+                        })
+                        .attr('class', 'text-center')
+                        .attr('font-size', fs)
+                        .attr('transform', function (d) {
+                            return 'translate(' + 0 + ',' + (childOption.w / 2 - childOption.w * 0.08) + ')';
+                        });
+
+                    var imageW = childOption.w / 4;
+                    nodeG
+                        .append('svg:image')
+                        .attr('width', imageW)
+                        .attr('height', imageW)
+                        .attr('xlink:href', function (d) {
+                            if (d.childNode || d.childTree) {
+                                return;
+                            }
+                            return 'db.png';
+                        })
+                        .attr('transform', function (d) {
+                            return 'translate(' + -imageW / 2 + ',' + -imageW / 2 + ')';
+                        })
+                    force.on("tick", function () {
+                        linkG.attr("x1", function (d) {
+                                return d.source.x;
+                            })
+                            .attr("y1", function (d) {
+                                return d.source.y;
+                            })
+                            .attr("x2", function (d) {
+                                return d.target.x;
+                            })
+                            .attr("y2", function (d) {
+                                return d.target.y;
+                            });
+
+
+                        nodeG.attr("transform", function (d) {
+                            return 'translate(' + d.x + ',' + d.y + ')';
+                        })
+                    });
+                    drawTree([dTree.links, dTree.nodes], childOption, force, linkG, nodeG, size, true);
+                }
+            })
+
+        nodeG
+            .append('svg:text')
+            .text(function (d) {
+                return d.name;
+            })
+            .attr('class', 'text-center')
+            .attr('transform', function (d) {
+                return 'translate(' + 0 + ',' + (options.w / 2 - options.w * 0.08) + ')';
+            });
+
+        var imageW = options.w / 4;
+        nodeG
+            .append('svg:image')
+            .attr('width', imageW)
+            .attr('height', imageW)
+            .attr('xlink:href', function (d) {
+                if (d.childNode || d.childTree) {
+                    return;
+                }
+                return 'db.png';
+            })
+            .attr('transform', function (d) {
+                return 'translate(' + -imageW / 2 + ',' + -imageW / 2 + ')';
+            })
+
+        //tick是力导向图每一次运动需要计算的过程
+        force.on("tick", function () {
+            linkG.attr("x1", function (d) {
+                    return d.source.x;
+                })
+                .attr("y1", function (d) {
+                    return d.source.y;
+                })
+                .attr("x2", function (d) {
+                    return d.target.x;
+                })
+                .attr("y2", function (d) {
+                    return d.target.y;
+                });
+
+
+            nodeG.attr("transform", function (d) {
+                return 'translate(' + d.x + ',' + d.y + ')';
+            })
+        });
+
+        function drawTree(ln, options, force, linkG, nodeG, size, flag) {
+            var middleData = {};
+            var linksBak = ln[0].concat();
+            var nodesBak = ln[1].concat();
+            //将数据整理为树状结构
+            nodesBak.forEach(function (d) {
+                if (d.index == 0) {
+                    var temp = {
+                        name: d.index,
+                        children: []
+                    };
+                    var treeData = toTreeData(linksBak);
+
+                    function toTreeData(data) {
+                        var pos = {};
+                        var tree = [];
+                        var i = 0;
+                        while (data.length != 0) {
+                            if (data[i].source.index == d.index) {
+                                tree.push({
+                                    name: data[i].target.index,
+                                    children: []
+                                });
+                                pos[data[i].target.index] = [tree.length - 1];
+                                data.splice(i, 1);
+                                i--;
+                            } else {
+                                var posArr = pos[data[i].source.index];
+                                if (posArr != undefined) {
+
+                                    var obj = tree[posArr[0]];
+                                    for (var j = 1; j < posArr.length; j++) {
+                                        obj = obj.children[posArr[j]];
+                                    }
+                                    obj.children.push({
+                                        name: data[i].target.index,
+                                        children: []
+                                    });
+                                    pos[data[i].target.index] = posArr.concat([obj.children.length - 1]);
+                                    data.splice(i, 1);
+                                    i--;
+                                }
+                            }
+                            i++;
+                            if (i > data.length - 1) {
+                                i = 0;
+                            }
+                        }
+                        return tree;
+                    }
+                    temp.children = treeData;
+                    middleData = temp;
+                }
+            });
+            //使用树状布局计算位置
+            var maxLabelLength = 2;
+            var tree = d3.layout.tree()
+                // .size([size.width, size.height]);
+                .size([size.height - options.w / 2, size.width - maxLabelLength * options.fontSize - options.w *
+                    2
+                ])
+
+            var tempNodes = tree.nodes(middleData);
+            //重启布局以改变位置
+            force.start();
+            force.on("tick", function () {
+                //在运动前强制修改节点坐标为树状结构
+                tempNodes.forEach(function (d, i) {
+                    if (flag) {
+                        ln[1][d.name].x = d.x;
+                        ln[1][d.name].y = d.y + options.w;
+                    } else {
+                        ln[1][d.name].x = d.y + options.w;
+                        ln[1][d.name].y = d.x;
+                    }
+
+                });
+                linkG.attr("x1", function (d) {
+                        return d.source.x;
+                    })
+                    .attr("y1", function (d) {
+                        return d.source.y + 10;
+                    })
+                    .attr("x2", function (d) {
+                        return d.target.x;
+                    })
+                    .attr("y2", function (d) {
+                        return d.target.y + 10;
+                    });
+
+
+                nodeG.attr("transform", function (d) {
+                    return 'translate(' + d.x + ',' + d.y + ')';
+                })
+            })
+
+
+        }
+        drawTree([links, nodes], options, force, linkG, nodeG, size);
+    </script>
+</body>
+
+</html>
